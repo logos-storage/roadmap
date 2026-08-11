@@ -229,7 +229,7 @@ test('compareUrl: encodes title/body, includes /cc @gmega and source note', () =
   const facts = weekFacts(new Date('2026-07-21T22:00:00Z'));
   const url = compareUrl(facts, 'https://hackmd.io/xyz');
   assert.ok(url.startsWith('https://github.com/logos-co/roadmap/compare/v5...logos-storage:roadmap:weeklies%2Fstorage-weekly-week-29?expand=1'));
-  assert.ok(url.includes(`title=${encodeURIComponent('Storage weekly: week 29 2026')}`));
+  assert.ok(url.includes(`title=${encodeURIComponent('docs(storage): 2026-07-20 weekly')}`));
   assert.ok(decodeURIComponent(url).includes('/cc @gmega'));
   assert.ok(decodeURIComponent(url).includes('https://hackmd.io/xyz'));
   assert.ok(decodeURIComponent(url).includes('Highlights section was generated'));
