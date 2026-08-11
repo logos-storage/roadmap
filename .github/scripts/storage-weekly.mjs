@@ -283,7 +283,7 @@ ${body}
 
 export function prTitle(facts) {
   const r = facts.reported;
-  return `Storage weekly: week ${r.week} ${r.isoYear}`;
+  return `docs(storage): ${r.publishDate} weekly`;
 }
 
 export function prBody(facts, sourceUrl) {
