@@ -42,7 +42,7 @@ jobs:
         run: node .github/scripts/storage-weekly.mjs
         env:
           HACKMD_TOKEN: ${{ secrets.HACKMD_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAT_PR: ${{ secrets.PAT_PR }}
           # NB: inputs.dry_run is a real boolean on workflow_dispatch; on
           # repository_dispatch it comes from client_payload. The == true guard
           # avoids `false || x` falling through to x.

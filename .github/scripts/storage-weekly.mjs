@@ -18,7 +18,7 @@
  *
  * Env:
  *   HACKMD_TOKEN  (required)  HackMD user token — never printed.
- *   GITHUB_TOKEN  (optional)  used for the upstream open-PR check.
+ *   PAT_PR  (optional)  used for the upstream open-PR check.
  *   DRY_RUN       'true' to skip the git push and the HackMD note creation.
  *
  * Exit codes: 0 = success; 1 = guard stop or error (status in $GITHUB_OUTPUT).
@@ -321,7 +321,7 @@ function forkBranchExists(branch) {
 
 async function upstreamOpenPr(branch) {
   const headers = { Accept: 'application/vnd.github+json' };
-  if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  if (process.env.PAT_PR) headers.Authorization = `Bearer ${process.env.PAT_PR}`;
   const res = await fetch(
     `https://api.github.com/repos/${UPSTREAM}/pulls?state=open&head=logos-storage:${encodeURIComponent(branch)}`,
     { headers }
