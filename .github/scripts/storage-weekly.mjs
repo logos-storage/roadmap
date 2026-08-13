@@ -13,13 +13,16 @@
  *   3. Branch off upstream logos-co/roadmap v5, generate the update file, push to fork.
  *      Sections reporting nothing (bare achieved/next labels only) are dropped.
  *      Guards: stop if the branch or an open upstream PR already exists.
- *   4. Emit the one-click PR compare URL + facts to $GITHUB_OUTPUT / $GITHUB_STEP_SUMMARY.
- *   5. Create the upcoming week's skeleton HackMD note (no-op if it already exists).
+ *   4. Create the upstream PR (fork → upstream) with PAT_PR; best-effort, falls back to
+ *      the one-click compare URL if it fails.
+ *   5. Emit pr_url / compare_url + facts to $GITHUB_OUTPUT / $GITHUB_STEP_SUMMARY.
+ *   6. Create the upcoming week's skeleton HackMD note (no-op if it already exists).
  *
  * Env:
  *   HACKMD_TOKEN  (required)  HackMD user token — never printed.
- *   PAT_PR  (optional)  used for the upstream open-PR check.
- *   DRY_RUN       'true' to skip the git push and the HackMD note creation.
+ *   PAT_PR  (optional)  used for the upstream open-PR check and to create the upstream PR
+ *                       — must have pull-requests: write on logos-co/roadmap.
+ *   DRY_RUN       'true' to skip the git push, the PR creation and the HackMD note creation.
  *
  * Exit codes: 0 = success; 1 = guard stop or error (status in $GITHUB_OUTPUT).
  */
@@ -307,6 +310,41 @@ export function compareUrl(facts, sourceUrl) {
   );
 }
 
+/**
+ * The cross-repo pull request payload. The API `head` is "owner:branch" (not the
+ * compare URL's owner:repo:branch triple).
+ */
+export function buildPrPayload(facts, sourceUrl) {
+  return {
+    title: prTitle(facts),
+    body: prBody(facts, sourceUrl),
+    head: `${FORK.split('/')[0]}:${facts.reported.branch}`,
+    base: BASE_BRANCH,
+  };
+}
+
+/**
+ * Create the PR in the upstream repo. Returns the created PR JSON, or
+ * { exists: true } when GitHub rejects the create because a PR already exists
+ * for the branch (a race between the open-PR guard and this call).
+ */
+async function createUpstreamPr(payload) {
+  const res = await fetch(`https://api.github.com/repos/${UPSTREAM}/pulls`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.PAT_PR}`,
+      Accept: 'application/vnd.github+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  if (res.status === 422) return { exists: true };
+  if (!res.ok) {
+    throw new Error(`GitHub create PR failed: HTTP ${res.status} ${await res.text()}`);
+  }
+  return res.json();
+}
+
 // ---------------------------------------------------------------------------
 // Git / GitHub helpers
 // ---------------------------------------------------------------------------
@@ -422,19 +460,49 @@ async function main() {
     summary(`✅ Pushed \`${r.branch}\` to ${FORK} with \`${filePath}\`.`);
   }
 
-  // Step 4 — surface the one-click PR URL and record success outputs.
+  // Step 4 — create the upstream PR (fork → upstream). Best-effort like the skeleton
+  // note: a failure here must not blank the facts the routine reports from — the
+  // compare URL below remains a working fallback.
+  let prUrl = '';
+  if (dryRun) {
+    summary('🧪 DRY RUN — skipping PR creation.');
+  } else if (!process.env.PAT_PR) {
+    warnings.push('⚠️ PR creation skipped — PAT_PR is not set (the routine can still open the PR via the compare URL).');
+  } else {
+    try {
+      const created = await createUpstreamPr(buildPrPayload(facts, sourceUrl));
+      if (created.exists) {
+        const existing = await upstreamOpenPr(r.branch);
+        if (existing) {
+          prUrl = existing;
+          warnings.push(`⚠️ PR already exists for \`${r.branch}\` — using it: ${prUrl}`);
+        } else {
+          warnings.push('⚠️ PR creation rejected as a duplicate, but no open PR was found for the branch.');
+        }
+      } else {
+        prUrl = created.html_url;
+        summary(`✅ Created PR: ${prUrl}`);
+      }
+    } catch (err) {
+      warnings.push(`⚠️ PR creation failed (branch push was unaffected): ${err.message} — open it manually via the compare URL.`);
+    }
+  }
+
+  // Step 5 — surface the PR / one-click compare URL and record success outputs.
   // Outputs are written BEFORE the best-effort skeleton step so a HackMD
   // failure there cannot blank the facts the routine reports from.
   const url = compareUrl(facts, sourceUrl);
+  if (prUrl) summary(`## Pull request\n\n${prUrl}`);
   summary(`## One-click PR URL\n\n${url}`);
   setOutput('status', 'success');
   setOutput('branch', r.branch);
   setOutput('file', filePath);
   setOutput('week', `${r.week}`);
+  setOutput('pr_url', prUrl);
   setOutput('compare_url', url);
   setOutput('source_note_url', sourceUrl);
 
-  // Step 5 — create the upcoming week's skeleton note (often a no-op; best-effort)
+  // Step 6 — create the upcoming week's skeleton note (often a no-op; best-effort)
   const u = facts.upcoming;
   const existing = findNoteByTitle(notes, u.noteTitle, u.publishDate);
   let newNoteUrl = '';

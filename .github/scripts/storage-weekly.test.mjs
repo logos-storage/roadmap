@@ -17,6 +17,7 @@ import {
   buildSkeleton,
   findNoteByTitle,
   compareUrl,
+  buildPrPayload,
 } from './storage-weekly.mjs';
 
 // --- Date math -------------------------------------------------------------
@@ -233,4 +234,16 @@ test('compareUrl: encodes title/body, includes /cc @gmega and source note', () =
   assert.ok(decodeURIComponent(url).includes('/cc @gmega'));
   assert.ok(decodeURIComponent(url).includes('https://hackmd.io/xyz'));
   assert.ok(decodeURIComponent(url).includes('Highlights section was generated'));
+});
+
+// --- PR payload ------------------------------------------------------------
+
+test('buildPrPayload: cross-repo fork PR head/base, reuses title and body', () => {
+  const facts = weekFacts(new Date('2026-07-21T22:00:00Z'));
+  const p = buildPrPayload(facts, 'https://hackmd.io/xyz');
+  assert.equal(p.title, 'docs(storage): 2026-07-20 weekly');
+  assert.equal(p.base, 'v5');
+  assert.equal(p.head, 'logos-storage:weeklies/storage-weekly-week-29');
+  assert.ok(p.body.includes('https://hackmd.io/xyz'));
+  assert.ok(p.body.includes('/cc @gmega'));
 });

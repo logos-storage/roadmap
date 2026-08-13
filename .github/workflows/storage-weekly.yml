@@ -1,8 +1,12 @@
 name: Storage weekly
 
 # Dispatched by the "Logos storage weekly update" claude.ai routine (Tue 22:00 UTC),
-# which then polls this run and writes the Highlights bullets onto the pushed branch.
-# See .github/storage-weekly-routine.md for the routine's prompt.
+# which then polls this run, reads the created PR URL and writes the Highlights bullets
+# onto the pushed branch (the PR updates automatically). See
+# .github/storage-weekly-routine.md for the routine's prompt.
+#
+# The workflow itself creates the upstream PR (fork → logos-co/roadmap) using PAT_PR,
+# which must have pull-requests: write on logos-co/roadmap.
 #
 # Manual test:  Actions → Storage weekly → Run workflow (dry_run = true)
 # Fallback dispatch (no actions:write needed):
